@@ -158,15 +158,17 @@ main { padding-bottom: 2rem; }
 }
 .cat-sprite {
   position: absolute;
-  left: 52%;
-  top: 53%;
-  width: 87%;
-  height: 84%;
+  left: 49%;
+  top: 52%;
+  width: 91%;
+  height: 94%;
   object-fit: contain;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
-.cat-sprite, .cat-canvas { filter: drop-shadow(0 .45rem .45rem rgb(61 34 24 / .36)); }
+.cat-sprite, .cat-canvas {
+  filter: drop-shadow(0 .22rem .18rem rgb(48 39 25 / .35)) drop-shadow(0 .5rem .55rem rgb(52 41 29 / .19));
+}
 .scene-light {
   pointer-events: none;
   opacity: 0;
@@ -179,23 +181,21 @@ main { padding-bottom: 2rem; }
 .pet-surface:focus-visible { outline: 3px solid #fffaf1; outline-offset: -6px; border-radius: inherit; }
 .scene[data-tracking] .pet-surface { cursor: none; }
 .scene[data-hide-hand] .pet-surface { cursor: crosshair; }
-.hand-halo {
+.petting-hand {
   position: absolute;
   inset: 0 auto auto 0;
-  display: none;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  margin: -1.5rem;
+  z-index: 1;
+  width: clamp(6rem, 11vw, 9.75rem);
+  aspect-ratio: 152 / 200;
   pointer-events: none;
-  border-radius: 50%;
-  border: 1px solid rgb(255 255 255 / .85);
-  color: white;
-  background: rgb(68 42 33 / .26);
-  box-shadow: 0 2px 8px rgb(22 15 12 / .26);
+  transform-origin: 50% 40%;
+  opacity: 0;
+  transition: opacity .14s ease-out;
+  filter: drop-shadow(0 2px 4px rgb(80 40 31 / .19));
 }
-.hand-halo .icon { width: 1.375rem; height: 1.375rem; }
-.scene[data-tracking]:not([data-hide-hand]) .hand-halo { display: grid; z-index: 1; }
+.petting-hand svg { display: block; width: 100%; height: 100%; }
+.scene:is([data-tracking], [data-keyboard-pet]):not([data-hide-hand]) .petting-hand { opacity: 1; }
+[data-light="moon"] .petting-hand { filter: drop-shadow(0 0 7px rgb(227 209 255 / .43)); }
 .scene-tools {
   position: absolute;
   z-index: 2;
@@ -394,5 +394,5 @@ kbd {
   .keyboard-hint { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .scene-light { transition: none; }
+  .scene-light, .petting-hand { transition: none; }
 }

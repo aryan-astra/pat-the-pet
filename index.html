@@ -58,8 +58,43 @@
             <img class="cat-sprite" src="./assets/pets/miso.webp" alt="" fetchpriority="high">
             <canvas class="cat-canvas" aria-hidden="true" hidden></canvas>
             <button type="button" class="pet-surface" aria-label="Pet the cat" aria-describedby="play-instructions"></button>
-            <div class="hand-halo" aria-hidden="true"><svg class="icon"><use href="#icon-hand"/></svg></div>
             <div class="scene-light" aria-hidden="true"></div>
+            <div class="petting-hand" aria-hidden="true">
+              <svg viewBox="0 0 152 200" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <path id="hand-shape"/>
+                  <linearGradient id="hand-tone" x2="80%" y2="54%">
+                    <stop stop-color="#fffdf5" stop-opacity=".77"/>
+                    <stop offset=".46" stop-color="#f8eafb" stop-opacity=".38"/>
+                    <stop offset="1" stop-color="#ffe0e6" stop-opacity=".64"/>
+                  </linearGradient>
+                  <linearGradient id="hand-edge" x2="90%" y2="90%">
+                    <stop stop-color="#fffefd" stop-opacity=".92"/>
+                    <stop offset=".63" stop-color="#fff6f9" stop-opacity=".48"/>
+                    <stop offset="1" stop-color="#ffd5e5" stop-opacity=".68"/>
+                  </linearGradient>
+                  <linearGradient id="wrist-fade" x2="0%" y2="100%">
+                    <stop offset=".66" stop-color="white"/>
+                    <stop offset="1" stop-color="black"/>
+                  </linearGradient>
+                  <clipPath id="hand-clip"><use href="#hand-shape"/></clipPath>
+                  <mask id="hand-mask" x="0" y="0" width="152" height="200" maskUnits="userSpaceOnUse">
+                    <rect width="152" height="200" fill="url(#wrist-fade)"/>
+                  </mask>
+                </defs>
+                <g mask="url(#hand-mask)">
+                  <use href="#hand-shape" fill="url(#hand-tone)"/>
+                  <g clip-path="url(#hand-clip)">
+                    <path fill="#b591bc" opacity=".24" d="M156 45C126 73 116 101 101 121S82 153 91 200H151Z"/>
+                    <path fill="#fffef8" opacity=".40" d="M13 59C29 79 37 98 47 115 55 131 59 153 54 173L47 200 29 166 30 135 4 106Z"/>
+                    <path fill="#ffe0e5" opacity=".28" d="M58 141C70 126 88 118 99 108 91 127 83 134 75 150L67 157Z"/>
+                    <path id="hand-knuckles" fill="none" stroke="#a67287" stroke-opacity=".43" stroke-width="1.05" stroke-linecap="round"/>
+                    <path fill="none" stroke="#fff8ed" stroke-opacity=".57" stroke-width="1.1" stroke-linecap="round" d="M41 108Q62 101 70 119M76 132Q87 125 94 116"/>
+                  </g>
+                  <use href="#hand-shape" fill="none" stroke="url(#hand-edge)" stroke-width="1.25" stroke-linejoin="round"/>
+                </g>
+              </svg>
+            </div>
             <div class="scene-tools">
               <button type="button" class="scene-tool fullscreen-sound" data-sound aria-label="Purring sound" aria-pressed="false" title="Toggle purring sound">
                 <svg class="icon"><use href="#icon-mute"/></svg>
