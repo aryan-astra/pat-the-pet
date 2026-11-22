@@ -2,11 +2,18 @@ const vertexSource = `
   attribute vec2 a_uv;
   attribute float a_joint;
   uniform vec4 u_frame;
-  uniform float u_aspect;
-  uniform float u_layer;
+  uniform mediump float u_aspect;
+  uniform mediump float u_layer;
+  uniform mediump vec4 u_press;
+  uniform mediump vec3 u_stroke;
+  uniform mediump vec2 u_motion;
   uniform vec2 u_rest[5];
   uniform vec3 u_joints[5];
-  varying vec2 v_uv;
+  #ifdef GL_FRAGMENT_PRECISION_HIGH
+  varying highp vec2 v_uv;
+  #else
+  varying mediump vec2 v_uv;
+  #endif
 
   void main() {
     vec2 position = a_uv;
@@ -24,6 +31,17 @@ const vertexSource = `
         skinned += (u_joints[i].xy + pivoted) * weight;
       }
       position = skinned * scale;
+    } else if (u_press.z > .003) {
+      vec2 scale = vec2(1.0, u_aspect);
+      vec2 fromPress = (position - u_press.xy) / scale;
+      float radius = u_press.w * 1.42;
+      float contact = exp(-dot(fromPress, fromPress) / (radius * radius));
+      // Compliance is limited to the torso interior. The face, outline, and
+      // tail joint stay registered to the underlying artwork.
+      float softTissue = smoothstep(.27, .43, a_uv.x) * (1.0 - smoothstep(.62, .76, a_uv.x))
+        * smoothstep(.24, .36, a_uv.y) * (1.0 - smoothstep(.52, .63, a_uv.y));
+      vec2 shear = u_stroke.xy * (.014 * u_stroke.z) - fromPress * .105;
+      position += shear * scale * (contact * softTissue * u_press.z * u_motion.y);
     }
     v_uv = a_uv;
     gl_Position = vec4(u_frame.xy + position * u_frame.zw, 0.0, 1.0);
@@ -40,8 +58,12 @@ const fragmentSource = `
   uniform sampler2D u_fur;
   uniform sampler2D u_flow;
   uniform vec2 u_texel;
-  uniform vec2 u_motion;
-  uniform float u_layer;
+  uniform mediump vec2 u_motion;
+  uniform mediump vec4 u_press;
+  uniform mediump vec3 u_stroke;
+  uniform vec4 u_pads[6];
+  uniform mediump float u_aspect;
+  uniform mediump float u_layer;
   uniform float u_cut;
   varying vec2 v_uv;
 
@@ -70,11 +92,41 @@ const fragmentSource = `
         vec3 newGrain = texture2D(u_sprite, moved).rgb - .5 * (texture2D(u_sprite, moved + grainWidth).rgb
            + texture2D(u_sprite, moved - grainWidth).rgb);
         // Keep the coat colors and markings fixed. Resample the fine grain only.
-        photo.rgb += clamp(newGrain - stillGrain, -.105, .105) * pressure * (.44 + flow.b * .48);
+        photo.rgb += clamp(newGrain - stillGrain, -.105, .105) * pressure * (.55 + flow.b * .70);
         float alongLight = dot(lean, vec2(.60, -.80));
         float acrossGrain = abs(dot(lean, normal));
-        photo.rgb += pressure * ((alongLight * .12 - acrossGrain * .065 + .032) * photo.rgb
-           + vec3(.012, .010, .008) * (.55 + acrossGrain));
+        float pale = smoothstep(.48, .90, max(photo.r, max(photo.g, photo.b)));
+        photo.rgb += pressure * (1.0 - .56 * pale) * ((alongLight * .23 - acrossGrain * .095) * photo.rgb
+           + vec3(.014, .012, .010) * acrossGrain);
+      }
+      if (u_press.z > .003) {
+        vec2 aspect = vec2(1.0, u_aspect);
+        vec2 delta = (v_uv - u_press.xy) / aspect;
+        float radius = u_press.w;
+        if (dot(delta, delta) < .042) {
+          float compression = 0.0;
+          for (int i = 0; i < 6; i++) {
+            vec4 pad = u_pads[i];
+            vec2 offset = (v_uv - pad.xy) / (aspect * max(.001, pad.z));
+            compression = max(compression, pad.w * exp(-dot(offset, offset)));
+          }
+          vec2 normal = vec2(-u_stroke.y, u_stroke.x);
+          float along = dot(delta, u_stroke.xy) / radius;
+          float across = dot(delta, normal) / radius;
+          float gather = (along - 1.18) * 2.5;
+          float ridge = exp(-gather * gather - .73 * across * across) * u_stroke.z;
+          float crease = exp(-1.60 * (along + .45) * (along + .45) - .68 * across * across);
+          float cover = smoothstep(.81, .99, photo.a);
+          float luminance = dot(photo.rgb, vec3(.24, .64, .12));
+          vec2 grainStep = vec2(.69, -.72) * u_texel * 1.7;
+          float fibre = luminance - .5 * dot(texture2D(u_sprite, v_uv - grainStep).rgb
+            + texture2D(u_sprite, v_uv + grainStep).rgb, vec3(.24, .64, .12));
+          float shade = ridge * .34 - compression * .16 - crease * .12;
+          float softHighlight = ridge * .028 + clamp(fibre, -.064, .064) * (ridge + .30 * compression);
+          float range = shade > 0.0 ? 1.0 - .72 * smoothstep(.43, .91, luminance) : 1.0;
+          photo.rgb += (photo.rgb * (shade * range) + vec3(1.0, .93, .84) * softHighlight)
+            * (cover * u_press.z);
+        }
       }
     }
     gl_FragColor = vec4(clamp(photo.rgb, 0.0, photo.a), photo.a);
@@ -146,7 +198,7 @@ export function createMesh(canvas, field) {
   gl.enableVertexAttribArray(joint);
 
   const uniforms = Object.fromEntries(
-    ["frame", "aspect", "layer", "rest[0]", "joints[0]", "texel", "motion", "cut"].map(name =>
+    ["frame", "aspect", "layer", "rest[0]", "joints[0]", "texel", "motion", "cut", "press", "stroke", "pads[0]"].map(name =>
       [name, gl.getUniformLocation(program, "u_" + name)])
   );
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
@@ -204,6 +256,9 @@ export function createMesh(canvas, field) {
       gl.uniform4f(uniforms.frame, 2 * bounds.x / area.width - 1, 1 - 2 * bounds.y / area.height,
         2 * bounds.width / area.width, -2 * bounds.height / area.height);
       gl.uniform2f(uniforms.motion, motion.breath, motion.furAmount);
+      gl.uniform4fv(uniforms.press, motion.press.center);
+      gl.uniform3fv(uniforms.stroke, motion.press.stroke);
+      gl.uniform4fv(uniforms["pads[0]"], motion.press.pads);
       gl.uniform3fv(uniforms["joints[0]"], motion.joints);
       gl.clear(gl.COLOR_BUFFER_BIT);
       for (const layer of [1, 0]) {

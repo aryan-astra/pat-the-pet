@@ -16,7 +16,7 @@ Stroke the head or back with a mouse or finger. Sweep along the tail to make it 
 
 ## Add a companion
 
-The coat catalog and sprite rig live in `src/pets.js`. Each pose uses an alpha WebP texture, a portrait, and texture-relative tail joints and hit radii. A fur direction map encodes the axial angle of the hair in red and green and the confidence in blue. `src/fur.js` tracks the direction and pressure of strokes as they fade. `src/mesh.js` applies those changes to the coat's fine grain and lighting and renders the tail on a separate layer. With WebGL unavailable, the photo stays still and the hand guide, comfort, coat selection, and sound remain available.
+The coat catalog and sprite rig live in `src/pets.js`. Each pose uses an alpha WebP texture, a portrait, and texture-relative tail joints and hit radii. A fur direction map encodes the axial angle of the hair in red and green and the confidence in blue. `src/fur.js` tracks brushed hair as it settles. `src/contact.js` maps the palm and fingertips onto the coat and smooths out changes in pressure and stroke direction. The WebGL renderer uses those inputs for localized compression, a ridge of fur ahead of the stroke, and a separate articulated tail. With WebGL unavailable, the photo stays still and the hand guide, comfort, coat selection, and sound remain available.
 
 ## Credits
 

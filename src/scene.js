@@ -1,3 +1,4 @@
+import { createCoatContact } from "./contact.js";
 import { createFurField } from "./fur.js";
 import { createHand } from "./hand.js";
 import { createMesh } from "./mesh.js";
@@ -27,6 +28,7 @@ export function createScene(scene, onMood) {
   const canvas = scene.querySelector("canvas");
   const hand = createHand(scene.querySelector(".petting-hand"));
   const field = createFurField();
+  const coatContact = createCoatContact();
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
   const hitGrid = document.createElement("canvas");
   hitGrid.width = 144;
@@ -107,6 +109,7 @@ export function createScene(scene, onMood) {
     scene.removeAttribute("data-keyboard-pet");
     clearPointer();
     field.clear();
+    coatContact.reset();
     sway.reset();
     curl.reset();
     tailTurn = 0;
@@ -125,13 +128,19 @@ export function createScene(scene, onMood) {
     return alpha[(row * hitGrid.width + col) * 4 + 3] > 93;
   }
 
+  function onCoat(x, y) {
+    return x <= rig.tailCut && hit(x, y);
+  }
+
   function moveHand(x, y, dx, dy, pose, pressure) {
     hand.move(bounds.x + x * bounds.width, bounds.y + y * bounds.height,
       dx * bounds.width, dy * bounds.height, pose, pressure);
   }
 
   function stroke(x, y, dx, dy, strength, pressure, tailOrigin) {
+    const now = performance.now();
     if (tailOrigin) {
+      coatContact.release();
       const ox = x - tailOrigin[0];
       const oy = y - tailOrigin[1];
       tailTurn = clamp(oy * 1.4 - ox * .80 - .045, -.37, .34);
@@ -139,17 +148,18 @@ export function createScene(scene, onMood) {
     } else {
       tailTurn = 0;
       tailCurl = 0;
+      coatContact.press(x, y, dx, dy, pressure, now, bounds.width / bounds.height);
       const gap = Math.hypot(dx, dy);
       const samples = gap < .11 ? Math.max(1, Math.ceil(gap / .026)) : 1;
       for (let step = 0; step < samples; step++) {
         const back = step / samples;
         const bx = x - dx * back;
         const by = y - dy * back;
-        if (bx <= rig.tailCut && hit(bx, by)) field.brush(bx, by, dx, dy, pressure);
+        if (onCoat(bx, by)) field.brush(bx, by, dx, dy, pressure);
       }
     }
     comfort = clamp(comfort + strength, .15);
-    lastStroke = performance.now();
+    lastStroke = now;
     wake();
   }
 
@@ -157,7 +167,7 @@ export function createScene(scene, onMood) {
     if (!bounds || (pointer && event.pointerId !== pointer.id)) return;
     const x = (event.clientX - location.left - bounds.x) / bounds.width;
     const y = (event.clientY - location.top - bounds.y) / bounds.height;
-    if (!pointer) pointer = { id: event.pointerId, x, y, warm: false, tailOrigin: null };
+    if (!pointer) pointer = { id: event.pointerId, x, y, warm: false, tailOrigin: null, pressed: false };
     const dx = x - pointer.x;
     const dy = y - pointer.y;
     const distance = Math.hypot(dx, dy);
@@ -169,7 +179,8 @@ export function createScene(scene, onMood) {
 
     const hover = bodyHit || Boolean(pointer.tailOrigin);
     if (hover) {
-      const pressure = tap ? 1 : clamp(.38 + distance * 13);
+      const sensed = event.pointerType === "pen" || (event.pointerType === "touch" && Math.abs(event.pressure - .5) > .035);
+      const pressure = sensed && event.pressure > 0 ? clamp(event.pressure, .16) : tap ? .92 : clamp(.46 + distance * 14);
       const pose = pointer.tailOrigin ? "tail" : x < .31 ? "head" : "back";
       moveHand(x, y, dx, dy, pose, pressure);
       if (tap || (pointer.warm && distance > .002)) {
@@ -181,12 +192,14 @@ export function createScene(scene, onMood) {
       wake();
     }
     scene.toggleAttribute("data-tracking", hover);
-    Object.assign(pointer, { x, y, warm: true });
+    Object.assign(pointer, { x, y, warm: true, onCoat: bodyHit, pressed: pointer.pressed || tap });
   }
 
   function clearPointer() {
     pointer = null;
+    coatContact.release();
     scene.removeAttribute("data-tracking");
+    wake();
   }
 
   function keyboardStroke(target) {
@@ -239,10 +252,13 @@ export function createScene(scene, onMood) {
     if (!held && !pointer?.tailOrigin) hand.relax();
     if (pointer || playback) hand.draw(delta, reduced);
     if (mesh) {
+      const press = coatContact.frame(now, delta, bounds, hand, onCoat, pointer?.pressed && pointer.onCoat,
+        reduced ? .48 : 1);
       mesh.draw(bounds, area, {
         joints: tail.pose(turn, turnCurl),
         breath: reduced ? 0 : Math.sin(now / 580) * .017,
         furAmount: reduced ? .55 : 1,
+        press,
       });
     }
     onMood(comfort, active && age < 730, comfort > .59);

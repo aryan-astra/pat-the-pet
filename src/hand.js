@@ -3,9 +3,12 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export function createHand(element) {
   const outline = element.querySelector("#hand-shape");
   const knuckles = element.querySelector("#hand-knuckles");
+  let width = 0;
   let angle = -12;
   let curl = -1;
   let target;
+
+  new ResizeObserver(([entry]) => { width = entry.contentRect.width; }).observe(element);
 
   function drawPose(flex) {
     const i = 20 * flex;
@@ -63,6 +66,26 @@ export function createHand(element) {
         drawPose(curl);
       }
       element.style.transform = `translate3d(${target.x}px, ${target.y}px, 0) translate(-50%, -40%) rotate(${angle.toFixed(2)}deg)`;
+    },
+    pads() {
+      if (!target || !width || curl < 0) return [];
+      const scale = width / 152;
+      const radians = angle * Math.PI / 180;
+      const c = Math.cos(radians);
+      const s = Math.sin(radians);
+      // Pad centers follow the same curl offsets as the drawn fingertips.
+      return [
+        [23 + 13 * curl, 95 + 4.4 * curl, 14, .58],
+        [40 + 7 * curl, 45 + 20 * curl, 14, .80],
+        [70, 29 + 32 * curl, 15, .97],
+        [101 - 2.8 * curl, 37 + 27 * curl, 14, .88],
+        [130 - 5.6 * curl, 59 + 18 * curl, 11, .59],
+        [75, 107, 38, .95],
+      ].map(([x, y, radius, load]) => {
+        const dx = (x - 76) * scale;
+        const dy = (y - 80) * scale;
+        return [target.x + dx * c - dy * s, target.y + dx * s + dy * c, radius * scale, load];
+      });
     },
   };
 }
