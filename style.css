@@ -185,17 +185,17 @@ main { padding-bottom: 2rem; }
   position: absolute;
   inset: 0 auto auto 0;
   z-index: 1;
-  width: clamp(6rem, 11vw, 9.75rem);
-  aspect-ratio: 152 / 200;
+  width: clamp(5.625rem, 20%, 12.25rem);
+  aspect-ratio: 3 / 4;
   pointer-events: none;
-  transform-origin: 50% 40%;
+  transform-origin: 55% 47%;
   opacity: 0;
   transition: opacity .14s ease-out;
-  filter: drop-shadow(0 2px 4px rgb(80 40 31 / .19));
+  filter: drop-shadow(1px var(--hand-shadow, 3px) 3px rgb(43 31 35 / .30));
 }
-.petting-hand svg { display: block; width: 100%; height: 100%; }
-.scene:is([data-tracking], [data-keyboard-pet]):not([data-hide-hand]) .petting-hand { opacity: 1; }
-[data-light="moon"] .petting-hand { filter: drop-shadow(0 0 7px rgb(227 209 255 / .43)); }
+.petting-hand img, .petting-hand canvas { display: block; width: 100%; height: 100%; }
+.scene:is([data-tracking], [data-keyboard-pet]):not([data-hide-hand]) .petting-hand { opacity: var(--hand-alpha, .65); }
+[data-light="moon"] .petting-hand { filter: brightness(.87) drop-shadow(2px var(--hand-shadow, 3px) 4px rgb(17 20 37 / .43)); }
 .scene-tools {
   position: absolute;
   z-index: 2;

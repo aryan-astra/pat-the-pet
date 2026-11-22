@@ -5,6 +5,7 @@ import { createMesh } from "./mesh.js";
 import { createTail } from "./tail.js";
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(value, max));
+const reachDirections = [[1, 0], [-1, 0], [0, 1], [0, -1], [.71, .71], [-.71, .71], [.71, -.71], [-.71, -.71]];
 
 function spring(speed, damping) {
   let velocity = 0;
@@ -132,9 +133,20 @@ export function createScene(scene, onMood) {
     return x <= rig.tailCut && hit(x, y);
   }
 
-  function moveHand(x, y, dx, dy, pose, pressure) {
-    hand.move(bounds.x + x * bounds.width, bounds.y + y * bounds.height,
-      dx * bounds.width, dy * bounds.height, pose, pressure);
+  function reachCoat(x, y) {
+    const aspect = bounds.width / bounds.height;
+    for (const radius of [.018, .034]) {
+      for (const [dx, dy] of reachDirections) {
+        const coatX = x + dx * radius;
+        const coatY = y + dy * radius * aspect;
+        if (onCoat(coatX, coatY)) return [coatX, coatY, 1 - radius * 17];
+      }
+    }
+    return null;
+  }
+
+  function moveHand(x, y, pose, pressure) {
+    hand.move(bounds.x + x * bounds.width, bounds.y + y * bounds.height, pose, pressure);
   }
 
   function stroke(x, y, dx, dy, strength, pressure, tailOrigin) {
@@ -149,14 +161,6 @@ export function createScene(scene, onMood) {
       tailTurn = 0;
       tailCurl = 0;
       coatContact.press(x, y, dx, dy, pressure, now, bounds.width / bounds.height);
-      const gap = Math.hypot(dx, dy);
-      const samples = gap < .11 ? Math.max(1, Math.ceil(gap / .026)) : 1;
-      for (let step = 0; step < samples; step++) {
-        const back = step / samples;
-        const bx = x - dx * back;
-        const by = y - dy * back;
-        if (onCoat(bx, by)) field.brush(bx, by, dx, dy, pressure);
-      }
     }
     comfort = clamp(comfort + strength, .15);
     lastStroke = now;
@@ -177,22 +181,26 @@ export function createScene(scene, onMood) {
     if (tailHit && !bodyHit) pointer.tailOrigin ??= [x, y];
     if (bodyHit || x < rig.tailCut - .09 || y < .22 || y > 1.24) pointer.tailOrigin = null;
 
-    const hover = bodyHit || Boolean(pointer.tailOrigin);
+    const reach = bodyHit ? [x, y, 1] : pointer.tailOrigin ? null : reachCoat(x, y);
+    const hover = Boolean(reach || pointer.tailOrigin);
     if (hover) {
       const sensed = event.pointerType === "pen" || (event.pointerType === "touch" && Math.abs(event.pressure - .5) > .035);
-      const pressure = sensed && event.pressure > 0 ? clamp(event.pressure, .16) : tap ? .92 : clamp(.46 + distance * 14);
+      const pressure = sensed && event.pressure > 0 ? clamp(event.pressure, .16) : tap ? .92 : clamp(.53 + distance * 13);
       const pose = pointer.tailOrigin ? "tail" : x < .31 ? "head" : "back";
-      moveHand(x, y, dx, dy, pose, pressure);
-      if (tap || (pointer.warm && distance > .002)) {
+      const [aimX, aimY, touch] = reach ?? [x, y, 1];
+      moveHand(x + (aimX - x) * .58, y + (aimY - y) * .58, pose, pressure * touch);
+      if (tap || (pointer.warm && distance > .00018)) {
         playback = null;
         scene.removeAttribute("data-keyboard-pet");
-        stroke(x, y, dx, dy, tap ? .10 : Math.min(distance, .10) * (pointer.tailOrigin ? .27 : .42),
-          pressure, pointer.tailOrigin);
+        const comfortGain = tap ? .10 : Math.min(distance, .10) * (pointer.tailOrigin ? .27 : .42);
+        stroke(aimX, aimY, dx, dy, comfortGain * touch, pressure * touch, pointer.tailOrigin);
+      } else if (reach && !pointer.onCoat) {
+        coatContact.press(aimX, aimY, 0, 0, .24 * touch, performance.now(), bounds.width / bounds.height);
       }
       wake();
     }
     scene.toggleAttribute("data-tracking", hover);
-    Object.assign(pointer, { x, y, warm: true, onCoat: bodyHit, pressed: pointer.pressed || tap });
+    Object.assign(pointer, { x, y, warm: true, onCoat: reach?.[2] ?? 0, pressed: pointer.pressed || tap });
   }
 
   function clearPointer() {
@@ -217,7 +225,7 @@ export function createScene(scene, onMood) {
     const curve = Math.sin(progress * Math.PI);
     const xx = x + (tailPet ? .10 * curve : (progress - .5) * .38);
     const yy = y + (tailPet ? -.09 * curve : .036 * curve);
-    moveHand(xx, yy, tailPet ? .015 : .025, tailPet ? -.013 : 0, playback.target, .85);
+    moveHand(xx, yy, playback.target, .85);
     stroke(xx, yy, tailPet ? .016 : .024, tailPet ? -.02 : .006, delta * .62, .86, tailPet ? [x, y] : null);
     if (progress === 1) {
       playback = null;
@@ -248,12 +256,14 @@ export function createScene(scene, onMood) {
     const scale = reduced ? .24 : 1;
     const turn = sway.tick(held ? tailTurn * scale : 0, delta);
     const turnCurl = curl.tick(held ? tailCurl * scale : 0, delta);
-    field.settle(delta);
-    if (!held && !pointer?.tailOrigin) hand.relax();
-    if (pointer || playback) hand.draw(delta, reduced);
+    const coatReach = pointer?.onCoat ?? 0;
+    const grounding = playback ? .99 : pointer?.tailOrigin ? .86
+      : coatReach * (pointer?.pressed ? .99 : held ? .91 : .64);
+    if (pointer || playback || active) hand.draw(delta, reduced, grounding);
     if (mesh) {
-      const press = coatContact.frame(now, delta, bounds, hand, onCoat, pointer?.pressed && pointer.onCoat,
-        reduced ? .48 : 1);
+      const rest = coatReach * (pointer?.pressed ? .62 : .25);
+      const press = coatContact.frame(now, delta, bounds, hand, onCoat, rest, reduced ? .49 : 1);
+      field.advance(delta, press);
       mesh.draw(bounds, area, {
         joints: tail.pose(turn, turnCurl),
         breath: reduced ? 0 : Math.sin(now / 580) * .017,
@@ -297,7 +307,15 @@ export function createScene(scene, onMood) {
     if (event.isPrimary && (event.pointerType === "mouse" || event.buttons === 1)) interact(event);
   });
   surface.addEventListener("pointerleave", clearPointer);
-  surface.addEventListener("lostpointercapture", clearPointer);
+  surface.addEventListener("lostpointercapture", event => {
+    if (event.pointerType === "mouse" && pointer?.onCoat) {
+      pointer.pressed = false;
+      coatContact.release();
+      wake();
+    } else {
+      clearPointer();
+    }
+  });
   surface.addEventListener("pointercancel", clearPointer);
   surface.addEventListener("click", event => {
     if (event.detail === 0) keyboardStroke("back");

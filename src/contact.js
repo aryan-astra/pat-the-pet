@@ -34,11 +34,11 @@ export function createCoatContact() {
       center.fill(0);
       pads.fill(0);
     },
-    frame(now, delta, bounds, hand, contains, holding, motionScale) {
+    frame(now, delta, bounds, hand, contains, restingForce, motionScale) {
       const recent = now - lastMove < 125;
-      const desired = recent ? target.pressure : holding && target ? .50 : 0;
-      load += (desired - load) * (1 - Math.exp(-delta * (desired > load ? 27 : 12)));
-      glide += ((recent ? target.speed * .8 : 0) - glide) * (1 - Math.exp(-delta * 16));
+      const desired = recent ? target.pressure : target ? restingForce : 0;
+      load += (desired - load) * (1 - Math.exp(-delta * (desired > load ? 24 : 11)));
+      glide += ((recent ? Math.tanh(target.speed * 1.95) : 0) - glide) * (1 - Math.exp(-delta * 15));
       pads.fill(0);
       if (!target || load < .003) {
         center[2] = 0;
@@ -61,9 +61,8 @@ export function createCoatContact() {
         totalY += y * intensity;
         weight += intensity;
       });
-      const gather = weight > 0 ? .60 : 0;
-      center[0] = weight ? target.x * (1 - gather) + totalX / weight * gather : target.x;
-      center[1] = weight ? target.y * (1 - gather) + totalY / weight * gather : target.y;
+      center[0] = weight ? totalX / weight : target.x;
+      center[1] = weight ? totalY / weight : target.y;
       center[2] = load * motionScale;
       center[3] = clamp((landmarks.at(-1)?.[2] || 30) / bounds.width, .043, .092);
       stroke[0] = Math.cos(heading);
