@@ -7,22 +7,6 @@ import { createTail } from "./tail.js";
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(value, max));
 
-function spring(speed, damping) {
-  let velocity = 0;
-  let value = 0;
-  return {
-    tick(target, delta) {
-      velocity += ((target - value) * speed - damping * velocity) * delta;
-      value += velocity * delta;
-      return value;
-    },
-    reset() {
-      velocity = 0;
-      value = 0;
-    },
-  };
-}
-
 export function createScene(scene, onMood) {
   const surface = scene.querySelector(".pet-surface");
   const sprite = scene.querySelector(".cat-sprite");
@@ -30,8 +14,6 @@ export function createScene(scene, onMood) {
   const hand = createHand(scene.querySelector(".petting-hand"));
   const contact = createCoatContact();
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-  const swivel = spring(78, 10.8);
-  const uncurl = spring(88, 11.6);
   let mesh;
   let texture;
   let rig;
@@ -50,7 +32,6 @@ export function createScene(scene, onMood) {
   let lastFrame = 0;
   let lastStroke = -Infinity;
   let comfort = .15;
-  let tailSettling = 0;
 
   function resetRenderer() {
     try {
@@ -74,10 +55,17 @@ export function createScene(scene, onMood) {
     const changed = !area || width !== area.width || height !== area.height;
     area = { width, height };
     if (!rig) return;
-    const aspect = texture.naturalWidth / texture.naturalHeight;
-    const fitWidth = Math.min(width * .91, height * .94 * aspect);
+    const aspect = tail.aspect;
+    const fitWidth = Math.min(width * .91, height * .94 * aspect) * rig.size;
     const fitHeight = fitWidth / aspect;
     bounds = { x: width * .49 - fitWidth / 2, y: height * .52 - fitHeight / 2, width: fitWidth, height: fitHeight };
+    Object.assign(sprite.style, {
+      left: `${bounds.x}px`,
+      top: `${bounds.y}px`,
+      width: `${bounds.width}px`,
+      height: `${bounds.height}px`,
+      transform: "none",
+    });
     if (changed) mesh?.resize(width, height);
     wake();
   }
@@ -86,7 +74,7 @@ export function createScene(scene, onMood) {
     texture = image;
     sprite.src = image.src;
     rig = pet.rig;
-    const aspect = image.naturalWidth / image.naturalHeight;
+    const aspect = (image.naturalWidth / image.naturalHeight) * rig.shape;
     coat = createCoat(rig, aspect);
     coat.setImage(image);
     outline = createOutline(image, 1 / aspect, rig.tailCut);
@@ -103,14 +91,12 @@ export function createScene(scene, onMood) {
     }
     canvas.hidden = !mesh;
     sprite.hidden = Boolean(mesh);
+    scene.toggleAttribute("data-stickers", pet.id === "miso");
     playback = null;
     lastHand = null;
     scene.removeAttribute("data-keyboard-pet");
     clearPointer();
     contact.reset();
-    swivel.reset();
-    uncurl.reset();
-    tailSettling = 0;
     lastStroke = -Infinity;
     comfort = .15;
     onMood(comfort, false, false);
@@ -139,7 +125,6 @@ export function createScene(scene, onMood) {
   }
 
   function clearPointer() {
-    if (pointer?.grip) tailSettling = 1.4;
     pointer = null;
     contact.release();
     scene.removeAttribute("data-tracking");
@@ -155,14 +140,17 @@ export function createScene(scene, onMood) {
     const dy = v - pointer.v;
     const distance = Math.hypot(dx, dy);
     const body = bodyContact(u, v);
-    const nearest = !body?.onBody ? tail.closest(u, v) : null;
+    const nearest = !body?.onBody || pointer.grip ? tail.closest(u, v) : null;
     const onTail = nearest && nearest.at > .13 && nearest.distance <= nearest.radius + .014;
-    if (pointer.grip && (body?.onBody || u < rig.tailCut - .11 || v > 1.21 || v < .20)) {
+    if (pointer.grip && !pointer.pressed && !tap
+      && ((body?.onBody && u < rig.tailCut - .02) || v > 1.24 || v < .15)) {
       pointer.grip = null;
-      tailSettling = 1.4;
     }
     const now = performance.now();
-    if (!pointer.grip && onTail) pointer.grip = { at: nearest.at, u, v, movedAt: now };
+    if ((!pointer.grip && onTail) || (tap && pointer.grip && onTail)) {
+      const seat = tail.sample(nearest.at);
+      pointer.grip = { at: nearest.at, offsetU: seat.u - u, offsetV: seat.v - v, movedAt: now };
+    }
     if (pointer.grip && (tap || distance > .00017)) pointer.grip.movedAt = now;
     pointer.aim = pointer.grip ? null : body;
     pointer.u = u;
@@ -203,13 +191,17 @@ export function createScene(scene, onMood) {
     wake();
   }
 
-  function drawHand(delta, reduced, state) {
+  function drawHand(delta, reduced, state, grip) {
     let pose;
-    if (playback?.target === "tail" || pointer?.grip) {
-      const grip = playback?.target === "tail" ? playback : pointer.grip;
+    if (grip) {
       const seat = tail.sample(grip.at);
       const bearing = Math.atan2(Math.sin(seat.angle - .77), Math.cos(seat.angle - .77));
-      pose = { u: seat.u, v: seat.v + .014, altitude: .055, pressure: .86, angle: clamp(bearing, -.58, .68), grip: true };
+      const followPointer = grip.held ? .16 : .89;
+      const pocket = grip.held ? .12 : .24;
+      const u = seat.u + clamp(grip.u - seat.u, -pocket, pocket) * followPointer;
+      const v = seat.v + clamp(grip.v - seat.v, -pocket, pocket) * followPointer;
+      pose = { u, v, altitude: grip.held ? .022 : .098,
+        pressure: grip.held ? .95 : .62, angle: clamp(bearing, -.61, .73), grip: true };
     } else {
       const aim = playback?.aim ?? pointer?.aim;
       if (aim) {
@@ -250,20 +242,17 @@ export function createScene(scene, onMood) {
     const delta = clamp((now - lastFrame) / 1000, .001, .048);
     lastFrame = now;
     const reduced = reducedMotion.matches;
-    const scale = reduced ? .24 : 1;
-    if (pointer?.grip && !pointer.pressed && now - pointer.grip.movedAt > 670) {
+    if (pointer?.grip && !pointer.pressed && now - pointer.grip.movedAt > 780) {
       pointer.grip = null;
-      tailSettling = 1.4;
       scene.removeAttribute("data-tracking");
     }
-    let turn = 0;
-    let stretch = 0;
+    let grip;
     if (playback) {
       const progress = clamp((now - playback.start) / 740);
       const sweep = Math.sin(progress * Math.PI);
       if (playback.target === "tail") {
-        turn = -.27 * sweep;
-        stretch = .43 * sweep;
+        const [u, v] = rig.tail[3];
+        grip = { at: playback.at, u: u + .115 * sweep, v: v - .092 * sweep, held: progress > .12 && progress < .90 };
       } else {
         const [u, v] = rig.back;
         const x = u - .16 + .31 * progress;
@@ -276,21 +265,19 @@ export function createScene(scene, onMood) {
       lastStroke = now;
       if (progress >= 1) {
         playback = null;
-        tailSettling = 1.4;
+        grip = null;
         contact.release();
         scene.removeAttribute("data-keyboard-pet");
       }
     } else if (pointer?.grip) {
-      const dx = pointer.u - pointer.grip.u;
-      const dy = pointer.v - pointer.grip.v;
-      turn = clamp(.10 + dy * 1.26 - dx * .70, -.40, .34);
-      stretch = clamp(.16 + dx * 2.30 - dy * .38, -.20, .54);
+      const offset = pointer.pressed ? 1 : .68;
+      grip = { at: pointer.grip.at, u: pointer.u + pointer.grip.offsetU * offset,
+        v: pointer.v + pointer.grip.offsetV * offset, held: pointer.pressed };
     }
-    tailSettling = Math.max(0, tailSettling - delta);
-    const joints = tail.pose(swivel.tick(turn * scale, delta), uncurl.tick(stretch * scale, delta));
+    const joints = tail.update(delta, mesh ? grip : null, reduced || !mesh);
     const rest = pointer?.aim ? (pointer.pressed ? .68 : .24) * pointer.aim.support : 0;
     const motion = contact.frame(now, delta, rest);
-    drawHand(delta, reduced, motion);
+    drawHand(delta, reduced, motion, grip);
     if (mesh) {
       const edge = pointer?.grip ? null : pointer?.aim?.edge;
       const input = coat.contact(hand.contacts(), motion, bounds, edge);
@@ -299,7 +286,7 @@ export function createScene(scene, onMood) {
     }
     if (age > 1800) comfort = clamp(comfort - delta * .035, .15);
     onMood(comfort, Boolean(playback || pointer?.pressed || age < 720), comfort > .59);
-    if (active || coat.active || tailSettling > 0 || comfort > .15 || Boolean(mesh && !reduced)) wake();
+    if (active || coat.active || tail.active || comfort > .15 || Boolean(mesh && !reduced)) wake();
   }
 
   resetRenderer();
@@ -349,5 +336,29 @@ export function createScene(scene, onMood) {
     if (event.detail === 0) keyboardStroke("back");
   });
 
-  return { petImage, keyboardStroke };
+  function canPlaceStamp(x, y, width, height, angle) {
+    if (!bounds || !coat) return true;
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    for (let row = 0; row < 7; row++) {
+      for (let col = 0; col < 7; col++) {
+        const px = (col / 6 - .5) * width;
+        const py = (row / 6 - .5) * height;
+        const sx = x * area.width + px * c - py * s;
+        const sy = y * area.height + px * s + py * c;
+        if (sx < area.width * .031 || sx > area.width * .968
+          || sy < area.height * .030 || sy > area.height * .963) return false;
+        const u = (sx - bounds.x) / bounds.width;
+        const v = (sy - bounds.y) / bounds.height;
+        if (coat.alpha(u, v) > 62) return false;
+        if (u > .74 && v > .25 && v < 1.04) {
+          const nearest = tail.closest(u, v);
+          if (nearest.distance <= nearest.radius + .007) return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  return { petImage, keyboardStroke, canPlaceStamp };
 }

@@ -12,16 +12,18 @@ python -m http.server 8745 --bind 127.0.0.1
 
 Open [the local simulator](http://127.0.0.1:8745/). A static host can serve the project root directly.
 
-Stroke the head or back with a mouse or finger. Sweep along the tail to make it curl and swish. Press **Space** to stroke the back or **T** to swish the tail. Use the controls to change the coat, lighting, sound, hand guide, or fullscreen mode. Sound starts off and becomes available after a click, tap, or keypress.
+Stroke the head or back with a mouse or finger. Brush over the tail to follow it with the hand, or press and drag to straighten it. The tail springs back after release and flicks occasionally on its own. Press **Space** to stroke the back or **T** to use the folded grip.
+
+On Snorlax’s cushion, drag any stamp far enough to peel it, then release it on the exposed fabric. The smiling ginger cat stamp physically covers the embroidered face and caption. Keyboard users can peel with **Enter** and move detached stamps with the arrow keys. **Sound** enables the purr and paper-peel effect.
 
 ## Add a companion
 
-The coat catalog and sprite rig live in `src/pets.js`. Each pose uses an alpha WebP texture, a portrait, and texture-relative tail joints and hit radii. A fur direction map encodes the hair axis and its confidence. The hand art and contact points share a rig in `src/hand-art.js`, and `src/outline.js` tracks the alpha edge through the changing mesh. `src/fur.js` drives breathing, soft-tissue recoil, and the grain left by a stroke. The WebGL renderer lights raised fibres and renders the tail on a separate articulated layer. With WebGL unavailable, the static cat and hand images still support the comfort meter, coat selection, and sound.
+The eight companion profiles in `src/pets.js` set size, proportions, breathing, coat softness, and tail flick cadence. Each profile uses an alpha WebP texture, a portrait, and texture-relative tail joints and hit radii. `src/tail.js` fits the grabbed point to the pointer while keeping the tail’s segment lengths fixed. The hand art and contact points share a rig in `src/hand-art.js`, and `src/outline.js` tracks the alpha edge through the changing mesh. `src/fur.js` drives breathing, soft-tissue recoil, and the grain left by a stroke. The WebGL renderer lights raised fibres and renders the tail on a separate articulated layer. With WebGL unavailable, the static cat and hand images still support the comfort meter, coat selection, and sound.
 
 ## Credits
 
-- **Purr**. Jim Mowatt's public-domain recording of Bertie Wooster was trimmed, filtered, and crossfaded for a continuous loop. [Original recording at Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Purring_cat_bertie.ogg).
-- **Artwork**. The overhead room, cat, and anime-style hand were generated with the built-in OpenAI Image Generation tool and exported as WebP. The ten coats share the sprite's pose and rig.
+- **Sound**. The purr in `Music/bertie-purr.mp3` uses Jim Mowatt’s public-domain recording of Bertie Wooster. The paper-peel effect in `Music/sticker-peel.mp3` is synthesized from filtered noise and short crackles. [Original purr recording at Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Purring_cat_bertie.ogg).
+- **Artwork**. The overhead room, cat, two hand poses, eight stamps, and embroidered adaptation of the supplied portrait were created with the built-in OpenAI Image Generation tool and exported as WebP.
 - **Fonts**. DM Sans and Fraunces are distributed with their SIL Open Font License files in `assets/fonts`.
 
 <details>
@@ -38,5 +40,17 @@ The coat catalog and sprite rig live in `src/pets.js`. Each pose uses an alpha W
 **Hand** (`assets/hand.webp`, transparent background)
 
 > Create an original polished 2D anime game sprite of a single right human hand and short forearm, seen directly from above with the palm toward the table. Center the wrist at the bottom, point the fingers upward, and angle the thumb left. Show all five naturally tapered, gently curved fingers with gaps between them. Use restrained cel shading, delicate outlines, credible knuckle and tendon details, understated nails, soft violet-gray and blush shadows, and pearly highlights from the upper left. Give the ghost hand opaque skin regions so the engine can composite the translucence. Leave clear alpha outside the silhouette and a little margin around every fingertip. Include one pose, with no cat, background, clothing, props, text, or glow cloud.
+
+**Grip** (`assets/hand-grip.webp`, transparent background)
+
+> Match the supplied dorsal-view hand’s proportions, framing, wrist position, rosy ivory and lavender-grey cel shading. Draw a gentle loose C grip, with curled fingertips and an open gap between the thumb and index finger. Keep the imaginary tail out of the image and leave transparent space around the silhouette.
+
+**Stamps** (`assets/stamps/stamp-1.webp` through `stamp-8.webp`)
+
+> Make a four-by-two sheet of eight individual vintage cat postage stickers. Use tactile paper fibers, scalloped ivory edges, and muted postcard inks. Include a sleeping tabby, black cat and star, paw print, smiling ginger cat with a peeled corner, fish toy, moon cat, matchbox cat, and tabby carrying an envelope. Keep each sticker squarely overhead and clear of its neighbors.
+
+**Embroidered portrait** (`assets/supreme-leader-knit.webp`)
+
+> Use only the face and tousled hair from the supplied portrait. Match the cushion with olive and flax stitches and leave clear alpha outside the hair and face. Simplify the embroidery so it reads at stamp size, with the title and credit added in the scene.
 
 </details>

@@ -1,5 +1,6 @@
 import { pets } from "./pets.js";
 import { createScene } from "./scene.js";
+import { createStickers } from "./sticker.js";
 import { createPurr } from "./sound.js";
 
 const $ = selector => document.querySelector(selector);
@@ -66,6 +67,14 @@ function onMood(value, touching, purring) {
 }
 
 const petScene = createScene(scene, onMood);
+let tape;
+createStickers(scene, () => {
+  if (!settings.sound) return Promise.resolve(true);
+  tape ??= new Audio(new URL("../Music/sticker-peel.mp3", import.meta.url));
+  tape.volume = .55;
+  tape.currentTime = 0;
+  return tape.play().then(() => true, () => false);
+}, petScene.canPlaceStamp);
 
 for (const pet of pets) {
   const label = document.createElement("label");
@@ -145,6 +154,7 @@ function updateLight() {
 
 function updateSound() {
   purr.enable(settings.sound);
+  if (!settings.sound) tape?.pause();
   document.querySelectorAll("[data-sound]").forEach(button => {
     button.setAttribute("aria-pressed", String(settings.sound));
     setIcon(button, settings.sound ? "sound" : "mute");

@@ -37,7 +37,7 @@
           <span class="brand-icon"><svg class="icon"><use href="#icon-paw"/></svg></span>
           <span>pat the pet<span class="brand-period">.</span></span>
         </a>
-        <button type="button" class="sound-button" data-sound aria-pressed="false" title="Toggle purring sound">
+        <button type="button" class="sound-button" data-sound aria-pressed="false" title="Toggle sound effects">
           <svg class="icon"><use href="#icon-mute"/></svg>
           <span>Sound</span>
           <span class="sound-state" aria-hidden="true">Off</span>
@@ -55,16 +55,29 @@
         <div class="play-area">
           <section class="scene" aria-label="Cat petting scene">
             <div class="scene-room" aria-hidden="true"></div>
+            <figure class="woven-portrait" id="woven-portrait" aria-hidden="true">
+              <img src="./assets/supreme-leader-knit.webp" alt="Embroidered face with dark, tousled hair" width="192" height="192" decoding="async">
+              <figcaption>
+                <strong>Supreme Leader</strong>
+                <span>Thanks for the idea.</span>
+              </figcaption>
+            </figure>
+            <div class="stamp-ink" aria-hidden="true"></div>
             <img class="cat-sprite" src="./assets/pets/miso.webp" alt="" fetchpriority="high">
             <canvas class="cat-canvas" aria-hidden="true" hidden></canvas>
             <button type="button" class="pet-surface" aria-label="Pet the cat" aria-describedby="play-instructions"></button>
             <div class="scene-light" aria-hidden="true"></div>
+            <div class="scene-stickers">
+              <div class="stamp-tray" role="group" aria-label="Cat postage stickers"></div>
+              <p class="sr-only" id="stamp-keys">Press Enter to peel. Use the arrow keys to move a peeled sticker.</p>
+            </div>
             <div class="petting-hand" aria-hidden="true">
-              <img src="./assets/hand.webp" alt="" width="432" height="576" decoding="async">
+              <img class="hand-open" src="./assets/hand.webp" alt="" width="432" height="576" decoding="async">
               <canvas width="432" height="576" hidden></canvas>
+              <img class="hand-grip" src="./assets/hand-grip.webp" alt="" width="432" height="576" decoding="async">
             </div>
             <div class="scene-tools">
-              <button type="button" class="scene-tool fullscreen-sound" data-sound aria-label="Purring sound" aria-pressed="false" title="Toggle purring sound">
+              <button type="button" class="scene-tool fullscreen-sound" data-sound aria-label="Sound effects" aria-pressed="false" title="Toggle sound effects">
                 <svg class="icon"><use href="#icon-mute"/></svg>
               </button>
               <button type="button" class="scene-tool" id="light-button" aria-label="Moonlight" aria-pressed="false" title="Moonlight">
@@ -80,7 +93,7 @@
             </div>
           </section>
           <p class="play-instructions" id="play-instructions">
-            <span class="gesture-hint"><svg class="icon"><use href="#icon-hand"/></svg> Stroke the fur or sweep outward along the tail.</span>
+            <span class="gesture-hint"><svg class="icon"><use href="#icon-hand"/></svg> Stroke the fur or press and drag the tail.</span>
             <span class="keyboard-hint"><svg class="icon"><use href="#icon-keyboard"/></svg><kbd>Space</kbd> pet <kbd>T</kbd> tail</span>
           </p>
         </div>
@@ -93,7 +106,7 @@
           <div class="pet-profile">
             <div class="pet-portrait" aria-hidden="true"></div>
             <div class="pet-details" aria-live="polite">
-              <h3 id="pet-name">Miso</h3>
+              <h3 id="pet-name">Snorlax</h3>
               <p id="pet-coat">Ginger tabby</p>
             </div>
           </div>

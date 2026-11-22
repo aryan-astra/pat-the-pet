@@ -9,6 +9,7 @@ const vertexSource = `
   uniform vec4 u_frame;
   uniform mediump float u_aspect;
   uniform mediump float u_layer;
+  uniform mediump float u_cut;
   uniform vec2 u_rest[5];
   uniform vec3 u_joints[5];
   #ifdef GL_FRAGMENT_PRECISION_HIGH
@@ -34,7 +35,7 @@ const vertexSource = `
         float weight = max(0.0, 1.0 - abs(a_joint - float(i)));
         skinned += (u_joints[i].xy + pivoted) * weight;
       }
-      position = skinned * scale;
+      position = mix(a_uv, skinned * scale, smoothstep(u_cut, u_cut + .050, a_uv.x));
     } else {
       position = a_pos;
     }
@@ -54,7 +55,7 @@ const fragmentSource = `
   uniform sampler2D u_flow;
   uniform vec2 u_texel;
   uniform mediump float u_layer;
-  uniform float u_cut;
+  uniform mediump float u_cut;
   varying vec2 v_uv;
   varying vec3 v_light;
 
@@ -173,7 +174,7 @@ export function createMesh(canvas) {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.uniform2f(uniforms.texel, 1 / image.naturalWidth, 1 / image.naturalHeight);
-      gl.uniform1f(uniforms.aspect, image.naturalWidth / image.naturalHeight);
+      gl.uniform1f(uniforms.aspect, tail.aspect);
       gl.uniform1f(uniforms.cut, rig.tailCut);
       gl.uniform2fv(uniforms["rest[0]"], tail.rest);
 

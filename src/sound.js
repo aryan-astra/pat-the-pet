@@ -1,4 +1,4 @@
-const recording = new URL("../assets/audio/bertie-purr.mp3", import.meta.url);
+const recording = new URL("../Music/bertie-purr.mp3", import.meta.url);
 
 export function createPurr() {
   let audio;

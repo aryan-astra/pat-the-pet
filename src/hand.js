@@ -19,7 +19,8 @@ function follow(axis, destination, delta, reduced) {
 }
 
 export function createHand(element) {
-  const image = element.querySelector("img");
+  const image = element.querySelector(".hand-open");
+  const gripImage = element.querySelector(".hand-grip");
   const canvas = element.querySelector("canvas");
   const x = { value: 0, velocity: 0 };
   const y = { value: 0, velocity: 0 };
@@ -29,6 +30,7 @@ export function createHand(element) {
   let angle = -20;
   let curl = .42;
   let lift = 0;
+  let gripMix = 0;
   let scale = 1;
   let heightOffset = 0;
 
@@ -76,14 +78,17 @@ export function createHand(element) {
       angle += (heading - angle) * weight;
       lift += (altitude - lift) * weight;
       const tuck = target.tuck ?? 0;
-      const desired = target.grip ? .77 + .19 * pressure
+      const grip = Boolean(target.grip && gripImage.complete && gripImage.naturalWidth);
+      const desired = target.grip && !grip ? .77 + .19 * pressure
         : .35 - .24 * pressure * (1 - altitude) + .17 * tuck + .20 * altitude;
       curl += (desired - curl) * weight;
+      gripMix += (Number(grip) - gripMix) * weight;
       scale = 1 + altitude * .065;
       heightOffset = width * .068 * altitude;
       art?.draw(curl);
       element.style.transform = `translate3d(${x.value.toFixed(2)}px, ${(y.value - heightOffset).toFixed(2)}px, 0) translate(-55%, -47%) rotate(${angle.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
       element.style.setProperty("--hand-alpha", (.80 - lift * .26).toFixed(3));
+      element.style.setProperty("--grip-mix", gripMix.toFixed(3));
       element.style.setProperty("--shadow-x", `${(width * (.019 + lift * .052)).toFixed(2)}px`);
       element.style.setProperty("--shadow-y", `${(width * (.025 + lift * .076)).toFixed(2)}px`);
       element.style.setProperty("--shadow-blur", `${(1.7 + width * (.007 + lift * .032)).toFixed(2)}px`);

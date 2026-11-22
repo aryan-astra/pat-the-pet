@@ -47,11 +47,13 @@ export function createCoat(rig, aspect) {
   const light = new Float32Array(vertices.length * 3);
   const brushedX = new Float32Array(vertices.length);
   const brushedY = new Float32Array(vertices.length);
-  const compression = oscillator(27, 32);
-  const driftX = oscillator(22, 23);
-  const driftY = oscillator(22, 23);
-  const rollX = oscillator(11.5, 10);
-  const rollY = oscillator(11.5, 10);
+  const softness = rig.softness ?? 1;
+  const relaxation = 1 / Math.sqrt(softness);
+  const compression = oscillator(27 * relaxation, 32 * relaxation);
+  const driftX = oscillator(22 * relaxation, 23 * relaxation);
+  const driftY = oscillator(22 * relaxation, 23 * relaxation);
+  const rollX = oscillator(11.5 * relaxation, 10 * relaxation);
+  const rollY = oscillator(11.5 * relaxation, 10 * relaxation);
   const springs = [compression, driftX, driftY, rollX, rollY];
   let alphaData;
   let imageWidth = 0;
@@ -161,13 +163,14 @@ export function createCoat(rig, aspect) {
         lastInput = { ...input, dirX: oldX + (aimX - oldX) * blend, dirY: oldY + (aimY - oldY) * blend };
       }
       const motion = lastInput;
-      const settle = reduced ? .35 : 1;
+      const settle = (reduced ? .35 : 1) * softness;
       const force = compression.update(pressure, delta);
       const shearX = driftX.update((motion?.dirX ?? 0) * speed * pressure, delta);
       const shearY = driftY.update((motion?.dirY ?? 0) * speed * pressure, delta);
       const wobbleX = rollX.update(shearX, delta) - shearX * .46;
       const wobbleY = rollY.update(shearY, delta) - shearY * .46;
-      const breath = reduced ? 0 : Math.sin(clock * 1.82) * .82 + Math.sin(clock * 3.64 - .55) * .18;
+      const breathPhase = clock * (rig.breathRate ?? 1.82);
+      const breath = reduced ? 0 : (Math.sin(breathPhase) * .82 + Math.sin(breathPhase * 2 - .55) * .18) * (rig.breathDepth ?? 1);
       const fade = Math.exp(-delta * 1.68);
       const deposition = -Math.expm1(-delta * 19 * speed);
       let memory = 0;
@@ -199,9 +202,9 @@ export function createCoat(rig, aspect) {
               fingertip = Math.max(fingertip, gaussian(dx, dy) * (.56 + pad.weight));
             }
             const relief = footprint * .59 + fingertip * .41;
-            const softness = (1 - .71 * head) * settle;
-            du += (shearX * .036 * relief - x * footprint * force * .17) * softness;
-            dv += (shearY * .042 * relief - y * footprint * force * .22) * softness / metric;
+            const yieldAmount = (1 - .71 * head) * settle;
+            du += (shearX * .036 * relief - x * footprint * force * .17) * yieldAmount;
+            dv += (shearY * .042 * relief - y * footprint * force * .22) * yieldAmount / metric;
             const rim = motion.edge;
             if (rim && rim.strength > 0) {
               const inward = gaussian((u - rim.u) / .074, (v - rim.v) * metric / .058);
