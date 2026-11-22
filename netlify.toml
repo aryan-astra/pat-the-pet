@@ -1,0 +1,13 @@
+[build]
+  command = "mkdir -p dist && cp -R index.html style.css src assets Music dist/"
+  publish = "dist"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+[[headers]]
+  for = "/Music/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"

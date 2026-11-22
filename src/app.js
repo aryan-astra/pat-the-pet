@@ -5,7 +5,7 @@ import { createPurr } from "./sound.js";
 
 const $ = selector => document.querySelector(selector);
 const settingsKey = "pat-the-pet.preferences";
-const settings = { pet: pets[0].id, moon: false, hand: true, sound: false };
+const settings = { pet: pets[0].id, moon: false, hand: true, sound: true };
 
 try {
   const saved = JSON.parse(localStorage.getItem(settingsKey));

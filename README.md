@@ -10,11 +10,11 @@ From the project root, serve the files over HTTP.
 python -m http.server 8745 --bind 127.0.0.1
 ```
 
-Open [the local simulator](http://127.0.0.1:8745/). A static host can serve the project root directly.
+Open [the local simulator](http://127.0.0.1:8745/). Netlify uses the settings in `netlify.toml` to copy the static site into `dist` and publish it without installing project dependencies.
 
 Stroke the head or back with a mouse or finger. Brush over the tail to follow it with the hand, or press and drag to straighten it. The tail springs back after release and flicks occasionally on its own. Press **Space** to stroke the back or **T** to use the folded grip.
 
-On Snorlax’s cushion, drag any stamp far enough to peel it, then release it on the exposed fabric. The smiling ginger cat stamp physically covers the embroidered face and caption. Keyboard users can peel with **Enter** and move detached stamps with the arrow keys. **Sound** enables the purr and paper-peel effect.
+On Snorlax’s cushion, drag any stamp far enough to peel it, then release it on the exposed fabric. The smiling ginger cat stamp physically covers the embroidered face and caption. Keyboard users can peel with **Enter** and move detached stamps with the arrow keys. The purr and paper-peel effects are enabled by default and can be muted with **Sound**. Browsers may require a click, tap, or keyboard interaction before playback.
 
 ## Add a companion
 
