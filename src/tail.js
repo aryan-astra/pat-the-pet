@@ -48,13 +48,28 @@ export function createTail(rig, aspect) {
       }
       return bones;
     },
-    hit(x, y) {
+    sample(at) {
+      const progress = clamp(at, 0, 1) * (posed.length - 1);
+      const i = Math.min(posed.length - 2, Math.floor(progress));
+      const t = progress - i;
+      const a = posed[i];
+      const b = posed[i + 1];
+      return {
+        u: a[0] + (b[0] - a[0]) * t,
+        v: (a[1] + (b[1] - a[1]) * t) * aspect,
+        angle: Math.atan2(b[1] - a[1], b[0] - a[0]),
+      };
+    },
+    closest(x, y) {
+      let nearest = null;
       for (let i = 0; i < posed.length - 1; i++) {
         const [t, distance] = project(x, y / aspect, posed[i], posed[i + 1]);
         const radius = radii[i] + (radii[i + 1] - radii[i]) * t;
-        if (distance < radius) return true;
+        if (!nearest || distance < nearest.distance) {
+          nearest = { at: (i + t) / (posed.length - 1), radius, distance };
+        }
       }
-      return false;
+      return nearest;
     },
   };
 }

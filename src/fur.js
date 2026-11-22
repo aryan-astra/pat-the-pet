@@ -1,118 +1,239 @@
-const fieldWidth = 84;
-const fieldHeight = 56;
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+export const coatColumns = 76;
+export const coatRows = 48;
 
-export function createFurField() {
-  const size = fieldWidth * fieldHeight;
-  const depth = new Float32Array(size);
-  const momentum = new Float32Array(size);
-  const load = new Float32Array(size);
-  const napX = new Float32Array(size);
-  const napY = new Float32Array(size);
-  const comb = new Float32Array(size);
-  const pixels = new Uint8Array(size * 4);
-  let energy = 0;
+const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(value, high));
+const ease = (a, b, value) => {
+  const t = clamp((value - a) / (b - a));
+  return t * t * (3 - 2 * t);
+};
+const gaussian = (x, y) => Math.exp(-x * x - y * y);
 
-  const field = {
-    width: fieldWidth, height: fieldHeight, pixels, version: 0,
-    clear() {
-      for (const buffer of [depth, momentum, load, napX, napY, comb]) buffer.fill(0);
-      pixels.fill(128);
-      for (let i = 2; i < pixels.length; i += 4) pixels[i] = 0;
-      energy = 0;
-      field.version++;
+function oscillator(rate, damping) {
+  let position = 0;
+  let velocity = 0;
+  return {
+    update(goal, delta) {
+      const steps = Math.max(1, Math.ceil(delta * 170));
+      const step = delta / steps;
+      for (let i = 0; i < steps; i++) {
+        velocity += (rate * rate * (goal - position) - damping * velocity) * step;
+        position += velocity * step;
+      }
+      return position;
     },
-    advance(delta, contact) {
-      const pressure = contact.center[2];
-      if (pressure > .007) energy = 1;
-      if (!energy) return;
-      if (pressure <= .007) {
-        energy *= Math.exp(-delta * 2);
-        if (energy < .008) {
-          field.clear();
-          return;
-        }
-      }
-
-      load.fill(0);
-      const fade = Math.exp(-delta * 1.8);
-      for (let i = 0; i < size; i++) {
-        napX[i] *= fade;
-        napY[i] *= fade;
-        comb[i] *= fade;
-      }
-      if (pressure > .007) {
-        const [directionX, directionY, glide] = contact.stroke;
-        const slipX = directionX * (.36 + .64 * glide);
-        const slipY = directionY * (.36 + .64 * glide);
-        const combRate = 1 - Math.exp(-delta * glide * 15);
-        let loaded = false;
-        for (let i = 0; i < contact.pads.length; i += 4) {
-          const weight = contact.pads[i + 3] * pressure;
-          if (weight < .015) continue;
-          stamp(contact.pads[i], contact.pads[i + 1], contact.pads[i + 2], weight,
-            directionX, directionY, glide, slipX, slipY, combRate);
-          loaded = true;
-        }
-        if (!loaded) stamp(contact.center[0], contact.center[1], .029, pressure * .66,
-          directionX, directionY, glide, slipX, slipY, combRate);
-      }
-
-      // A damped height field rebounds after the contact moves on. Neighbor
-      // coupling keeps the pressure from looking like six isolated dots.
-      const iterations = Math.ceil(delta * 108);
-      const step = delta / iterations;
-      for (let j = 0; j < iterations; j++) {
-        for (let y = 1; y < fieldHeight - 1; y++) {
-          for (let x = 1; x < fieldWidth - 1; x++) {
-            const i = y * fieldWidth + x;
-            const current = depth[i];
-            const laplacian = depth[i - 1] + depth[i + 1]
-              + depth[i - fieldWidth] + depth[i + fieldWidth] - 4 * current;
-            const spring = 218 * (clamp(load[i], -.85, .61) - current);
-            momentum[i] += (spring + 96 * laplacian - 21 * momentum[i]) * step;
-          }
-        }
-        for (let i = 0; i < size; i++) depth[i] += momentum[i] * step;
-      }
-
-      for (let i = 0; i < size; i++) {
-        const pixel = i * 4;
-        pixels[pixel] = 128 + clamp(napX[i], -1, 1) * 126;
-        pixels[pixel + 1] = 128 + clamp(napY[i], -1, 1) * 126;
-        pixels[pixel + 2] = clamp(comb[i], 0, 1) * 255;
-        pixels[pixel + 3] = 128 + clamp(depth[i], -.99, .99) * 126;
-      }
-      field.version++;
+    reset() {
+      position = 0;
+      velocity = 0;
     },
-    get active() { return energy > 0; },
   };
+}
 
-  function stamp(x, y, radius, weight, dx, dy, glide, slipX, slipY, combRate) {
-    const centerX = x * fieldWidth - .5;
-    const centerY = y * fieldHeight - .5;
-    const spread = Math.max(1.18, radius * fieldWidth * 1.12);
-    const limit = spread * 2.8;
-    const sink = .72 + radius * 5;
-    for (let row = Math.max(1, Math.floor(centerY - limit)); row <= Math.min(fieldHeight - 2, centerY + limit); row++) {
-      for (let col = Math.max(1, Math.floor(centerX - limit)); col <= Math.min(fieldWidth - 2, centerX + limit); col++) {
-        const ox = (col - centerX) / spread;
-        const oy = (row - centerY) / spread;
-        const along = ox * dx + oy * dy;
-        const across = -ox * dy + oy * dx;
-        const footprint = Math.exp(-1.4 * along * along - 1.15 * across * across);
-        const pushed = along - 1.13;
-        const shoulder = Math.exp(-3.1 * pushed * pushed - 1.5 * across * across);
-        const i = row * fieldWidth + col;
-        load[i] += weight * (shoulder * glide * .91 - sink * footprint);
-        const deposit = combRate * weight * (footprint + .18 * shoulder);
-        napX[i] += (slipX - napX[i]) * deposit;
-        napY[i] += (slipY - napY[i]) * deposit;
-        comb[i] += (1 - comb[i]) * deposit;
-      }
+export function createCoat(rig, aspect) {
+  const metric = 1 / aspect;
+  const rowSize = coatColumns + 1;
+  const vertices = [];
+  for (let y = 0; y <= coatRows; y++) {
+    for (let x = 0; x <= coatColumns; x++) {
+      const u = x / coatColumns;
+      const v = y / coatRows;
+      const torso = gaussian((u - .50) / .29, (v - .45) / .30);
+      const head = gaussian((u - .19) / .14, (v - .43) / .23);
+      const socket = 1 - ease(.71, rig.tailCut - .002, u);
+      vertices.push({ u, v, torso, head, socket });
     }
   }
 
-  field.clear();
-  return field;
+  const xy = new Float32Array(vertices.length * 2);
+  const light = new Float32Array(vertices.length * 3);
+  const brushedX = new Float32Array(vertices.length);
+  const brushedY = new Float32Array(vertices.length);
+  const compression = oscillator(27, 32);
+  const driftX = oscillator(22, 23);
+  const driftY = oscillator(22, 23);
+  const rollX = oscillator(11.5, 10);
+  const rollY = oscillator(11.5, 10);
+  const springs = [compression, driftX, driftY, rollX, rollY];
+  let alphaData;
+  let imageWidth = 0;
+  let imageHeight = 0;
+  let hasMesh = false;
+  let lastInput;
+  let clock = 0;
+  let active = false;
+
+  function sample(data, u, v, channel) {
+    const gx = clamp(u * coatColumns, 0, coatColumns - .00001);
+    const gy = clamp(v * coatRows, 0, coatRows - .00001);
+    const x = Math.floor(gx);
+    const y = Math.floor(gy);
+    const tx = gx - x;
+    const ty = gy - y;
+    const a = 2 * (y * rowSize + x) + channel;
+    const b = a + rowSize * 2;
+    return (data[a] * (1 - tx) + data[a + 2] * tx) * (1 - ty)
+      + (data[b] * (1 - tx) + data[b + 2] * tx) * ty;
+  }
+
+  function alpha(u, v) {
+    if (!alphaData || u < 0 || v < 0 || u >= 1 || v >= 1) return 0;
+    return alphaData[4 * (Math.floor(v * imageHeight) * imageWidth + Math.floor(u * imageWidth)) + 3];
+  }
+
+  function restZone(u, v) {
+    return u < rig.tailCut && alpha(u, v) >= 85 ? (u < .30 ? "head" : "back") : null;
+  }
+
+  function unmap(u, v) {
+    let x = u;
+    let y = v;
+    if (hasMesh && x >= 0 && y >= 0 && x <= 1 && y <= 1) {
+      for (let pass = 0; pass < 4; pass++) {
+        const dx = u - sample(xy, x, y, 0);
+        const dy = v - sample(xy, x, y, 1);
+        x += dx * .88;
+        y += dy * .88;
+        if (Math.abs(dx) + Math.abs(dy) < .0004) break;
+      }
+    }
+    return { u: x, v: y, zone: restZone(x, y) };
+  }
+
+  const coat = {
+    xy, light, alpha, sample, unmap,
+    get active() { return active; },
+    get hasMesh() { return hasMesh; },
+    setImage(image) {
+      const mask = document.createElement("canvas");
+      imageWidth = mask.width = 256;
+      imageHeight = mask.height = Math.round(imageWidth * metric);
+      const ctx = mask.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(image, 0, 0, imageWidth, imageHeight);
+      alphaData = ctx.getImageData(0, 0, imageWidth, imageHeight).data;
+      coat.reset();
+    },
+    reset() {
+      springs.forEach(spring => spring.reset());
+      hasMesh = active = false;
+      lastInput = undefined;
+      clock = 0;
+      light.fill(0);
+      brushedX.fill(0);
+      brushedY.fill(0);
+      for (let i = 0; i < vertices.length; i++) {
+        xy[i * 2] = vertices[i].u;
+        xy[i * 2 + 1] = vertices[i].v;
+      }
+    },
+    contact(landmarks, motion, bounds, edge) {
+      if (motion.pressure <= .006) return null;
+      const fallback = unmap(motion.u, motion.v);
+      let total = 0;
+      let x = 0;
+      let y = 0;
+      const pads = [];
+      for (const pad of landmarks) {
+        const p = unmap((pad.x - bounds.x) / bounds.width, (pad.y - bounds.y) / bounds.height);
+        if (!p.zone) continue;
+        pads.push({ u: p.u, v: p.v, size: clamp(pad.radius / bounds.width, .017, .058), weight: pad.weight });
+        total += pad.weight;
+        x += p.u * pad.weight;
+        y += p.v * pad.weight;
+      }
+      if (total < .02 && !fallback.zone && !edge) return null;
+      const u = total ? .66 * x / total + .34 * fallback.u : fallback.u;
+      const v = total ? .66 * y / total + .34 * fallback.v : fallback.v;
+      return {
+        u, v, pads, edge, vx: motion.vx, vy: motion.vy * metric,
+        pressure: motion.pressure * clamp(.56 + total * .62, .56, 1),
+      };
+    },
+    draw(delta, input, reduced) {
+      clock += delta;
+      const pressure = input?.pressure ?? 0;
+      const velocity = Math.hypot(input?.vx ?? 0, input?.vy ?? 0);
+      const speed = Math.tanh(velocity * 3);
+      if (input) {
+        const oldX = lastInput?.dirX ?? 0;
+        const oldY = lastInput?.dirY ?? 1;
+        const blend = 1 - Math.exp(-delta * 24);
+        const aimX = velocity > .003 ? input.vx / velocity : oldX;
+        const aimY = velocity > .003 ? input.vy / velocity : oldY;
+        lastInput = { ...input, dirX: oldX + (aimX - oldX) * blend, dirY: oldY + (aimY - oldY) * blend };
+      }
+      const motion = lastInput;
+      const settle = reduced ? .35 : 1;
+      const force = compression.update(pressure, delta);
+      const shearX = driftX.update((motion?.dirX ?? 0) * speed * pressure, delta);
+      const shearY = driftY.update((motion?.dirY ?? 0) * speed * pressure, delta);
+      const wobbleX = rollX.update(shearX, delta) - shearX * .46;
+      const wobbleY = rollY.update(shearY, delta) - shearY * .46;
+      const breath = reduced ? 0 : Math.sin(clock * 1.82) * .82 + Math.sin(clock * 3.64 - .55) * .18;
+      const fade = Math.exp(-delta * 1.68);
+      const deposition = -Math.expm1(-delta * 19 * speed);
+      let memory = 0;
+
+      for (let i = 0; i < vertices.length; i++) {
+        const { u, v, torso, head, socket } = vertices[i];
+        const rx = u - .51;
+        const ry = v - .425;
+        let du = rx * torso * .036 * breath + torso * (wobbleX * .029) * settle;
+        let dv = ry * torso * .079 * breath + torso * (wobbleY * .047) * settle;
+        const headLean = head * (wobbleX * .026 + wobbleY * .016) * settle;
+        du -= (v - .43) * headLean;
+        dv += (u - .18) * headLean;
+        let shade = torso * breath * .029;
+        let trailX = brushedX[i] * fade;
+        let trailY = brushedY[i] * fade;
+
+        if (motion && force > .002) {
+          const x = u - motion.u;
+          const y = (v - motion.v) * metric;
+          if (Math.abs(x) < .26 && Math.abs(y) < .23) {
+            const footprint = gaussian(x / .102, y / .089);
+            const cushion = gaussian(x / .161, y / .133);
+            let fingertip = 0;
+            for (const pad of motion.pads) {
+              const dx = (u - pad.u) / pad.size;
+              const dy = (v - pad.v) * metric / pad.size;
+              if (Math.abs(dx) + Math.abs(dy) > 3.4) continue;
+              fingertip = Math.max(fingertip, gaussian(dx, dy) * (.56 + pad.weight));
+            }
+            const relief = footprint * .59 + fingertip * .41;
+            const softness = (1 - .71 * head) * settle;
+            du += (shearX * .036 * relief - x * footprint * force * .17) * softness;
+            dv += (shearY * .042 * relief - y * footprint * force * .22) * softness / metric;
+            const rim = motion.edge;
+            if (rim && rim.strength > 0) {
+              const inward = gaussian((u - rim.u) / .074, (v - rim.v) * metric / .058);
+              const bend = inward * rim.strength * force * .026 * settle * (1 - .63 * head);
+              du += rim.nx * bend;
+              dv += rim.ny * bend / metric;
+            }
+            const ahead = x * motion.dirX + y * motion.dirY;
+            const sideways = -x * motion.dirY + y * motion.dirX;
+            const ridge = gaussian((ahead - .059) / .038, sideways / .089) * speed;
+            const surfaceSlope = (x * .77 + y * .56) * 3.1;
+            shade += force * settle * (surfaceSlope * cushion - .20 * relief + .19 * ridge);
+            const add = deposition * pressure * (footprint * .86 + .28 * fingertip);
+            trailX += (motion.dirX - trailX) * add;
+            trailY += (motion.dirY - trailY) * add;
+          }
+        }
+
+        brushedX[i] = trailX;
+        brushedY[i] = trailY;
+        memory = Math.max(memory, Math.abs(trailX), Math.abs(trailY));
+        xy[i * 2] = u + clamp(du, -.035, .035) * socket;
+        xy[i * 2 + 1] = v + clamp(dv, -.048, .048) * socket;
+        light[i * 3] = shade;
+        light[i * 3 + 1] = trailX * settle;
+        light[i * 3 + 2] = trailY * settle;
+      }
+      hasMesh = true;
+      active = Math.abs(force) + Math.abs(wobbleX) + Math.abs(wobbleY) + memory > .006;
+      return coat;
+    },
+  };
+  coat.reset();
+  return coat;
 }

@@ -167,7 +167,8 @@ main { padding-bottom: 2rem; }
   pointer-events: none;
 }
 .cat-sprite, .cat-canvas {
-  filter: drop-shadow(0 .22rem .18rem rgb(48 39 25 / .35)) drop-shadow(0 .5rem .55rem rgb(52 41 29 / .19));
+  filter: drop-shadow(.07rem .16rem .10rem rgb(43 32 24 / .54))
+    drop-shadow(.33rem .61rem .44rem rgb(48 34 24 / .32));
 }
 .scene-light {
   pointer-events: none;
@@ -191,11 +192,15 @@ main { padding-bottom: 2rem; }
   transform-origin: 55% 47%;
   opacity: 0;
   transition: opacity .14s ease-out;
-  filter: drop-shadow(1px var(--hand-shadow, 3px) 3px rgb(43 31 35 / .30));
+  filter: drop-shadow(var(--shadow-x, 2px) var(--shadow-y, 4px) var(--shadow-blur, 4px)
+    rgb(48 32 30 / var(--shadow-alpha, .48)));
 }
 .petting-hand img, .petting-hand canvas { display: block; width: 100%; height: 100%; }
 .scene:is([data-tracking], [data-keyboard-pet]):not([data-hide-hand]) .petting-hand { opacity: var(--hand-alpha, .65); }
-[data-light="moon"] .petting-hand { filter: brightness(.87) drop-shadow(2px var(--hand-shadow, 3px) 4px rgb(17 20 37 / .43)); }
+[data-light="moon"] .petting-hand {
+  filter: brightness(.87) drop-shadow(var(--shadow-x, 2px) var(--shadow-y, 4px) var(--shadow-blur, 4px)
+    rgb(14 19 39 / var(--shadow-alpha, .48)));
+}
 .scene-tools {
   position: absolute;
   z-index: 2;

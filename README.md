@@ -16,7 +16,7 @@ Stroke the head or back with a mouse or finger. Sweep along the tail to make it 
 
 ## Add a companion
 
-The coat catalog and sprite rig live in `src/pets.js`. Each pose uses an alpha WebP texture, a portrait, and texture-relative tail joints and hit radii. A fur direction map encodes the axial angle of the hair in red and green and the confidence in blue. The hand art and its contact points share a rig in `src/hand-art.js`. `src/contact.js` maps the moving palm and fingertips onto the cat. `src/fur.js` simulates a damped height field and tracks brushed hair as it settles. The WebGL renderer lights that surface and renders the tail on a separate articulated layer. With WebGL unavailable, the static cat and hand images still support the comfort meter, coat selection, and sound.
+The coat catalog and sprite rig live in `src/pets.js`. Each pose uses an alpha WebP texture, a portrait, and texture-relative tail joints and hit radii. A fur direction map encodes the hair axis and its confidence. The hand art and contact points share a rig in `src/hand-art.js`, and `src/outline.js` tracks the alpha edge through the changing mesh. `src/fur.js` drives breathing, soft-tissue recoil, and the grain left by a stroke. The WebGL renderer lights raised fibres and renders the tail on a separate articulated layer. With WebGL unavailable, the static cat and hand images still support the comfort meter, coat selection, and sound.
 
 ## Credits
 

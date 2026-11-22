@@ -25,12 +25,14 @@ function flexOffset(x, y) {
     const dy = (y - base[1]) / handAspect;
     const t = fit((ax * dx + ay * dy) / (ax * ax + ay * ay), 0, 1);
     const distance = Math.hypot(dx - t * ax, dy - t * ay);
-    const weight = t * fit(1.8 - distance / radius, 0, 1);
+    const rim = fit((distance / radius - 1.05) / 1.32, 0, 1);
+    const coverage = 1 - rim * rim * (3 - 2 * rim);
+    const weight = t * coverage;
     if (weight <= closest) continue;
     closest = weight;
-    const bend = t * weight;
-    offsetX = (-ax * .43 + (.55 - tip[0]) * .085) * bend;
-    offsetY = (-ay * .46 * handAspect + .015) * bend;
+    const bend = (.63 + .37 * t) * weight;
+    offsetX = (-ax * .28 + (.55 - tip[0]) * .048) * bend;
+    offsetY = (-ay * .32 * handAspect + .011) * bend;
   }
   return [offsetX, offsetY];
 }
