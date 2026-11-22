@@ -203,6 +203,7 @@ main { padding-bottom: 2rem; }
   filter: brightness(.87) drop-shadow(var(--shadow-x, 2px) var(--shadow-y, 4px) var(--shadow-blur, 4px)
     rgb(14 19 39 / var(--shadow-alpha, .48)));
 }
+.scene { --keepsake-stamp-size: clamp(2.875rem, 8.7%, 5.5rem); }
 .scene-stickers { display: none; position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 .scene[data-stickers] .scene-stickers { display: block; }
 .stamp-ink { position: absolute; inset: 0; isolation: isolate; pointer-events: none; }
@@ -228,7 +229,7 @@ main { padding-bottom: 2rem; }
   -webkit-tap-highlight-color: transparent;
 }
 .stamp-art { filter: drop-shadow(1px 2px 2px rgb(35 26 15 / .40)); }
-.stamp:nth-child(4), .stamp-art:nth-child(4) { width: clamp(2.875rem, 8.7%, 5.5rem); }
+.stamp-keepsake { width: var(--keepsake-stamp-size); }
 .stamp[data-loose], .stamp-art[data-loose] { z-index: 2; }
 .stamp[data-carry], .stamp[data-folding], .stamp-art[data-carry], .stamp-art[data-folding] { z-index: 4; }
 .stamp[data-carry], .stamp[data-folding] { cursor: grabbing; }
@@ -266,8 +267,14 @@ main { padding-bottom: 2rem; }
 .stamp-art[data-folding] .stamp-back, .stamp-art[data-folding] .stamp-crease { display: block; }
 .woven-portrait {
   position: absolute;
-  width: clamp(2.16rem, 6.525%, 4.125rem);
+  width: calc(var(--keepsake-stamp-size) * .76);
+  aspect-ratio: 1;
   container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: clip;
   margin: 0;
   transform: translate(-50%, -50%) rotate(var(--stamp-angle, 10deg));
   text-align: center;
@@ -276,19 +283,20 @@ main { padding-bottom: 2rem; }
 .scene:not([data-stickers]) .woven-portrait { display: none; }
 .woven-portrait img {
   display: block;
-  width: 69%;
-  height: auto;
-  margin: 0 auto;
+  width: 66%;
+  height: 60%;
+  object-fit: contain;
   opacity: .86;
   mix-blend-mode: multiply;
 }
 .woven-portrait figcaption {
-  margin-top: .06rem;
+  width: 92%;
+  margin-top: 2cqw;
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .055rem;
+  gap: 2cqw;
   color: #292e1d;
   text-shadow: .045em .08em rgb(233 225 177 / .39);
 }

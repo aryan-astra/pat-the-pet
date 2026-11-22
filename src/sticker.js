@@ -57,6 +57,10 @@ export function createStickers(scene, playPeel, canPlace) {
     const url = new URL(`../assets/stamps/stamp-${index + 1}.webp`, import.meta.url).href;
     const artwork = document.createElement("div");
     artwork.className = "stamp-art";
+    if (index === keepsake) {
+      sticker.classList.add("stamp-keepsake");
+      artwork.classList.add("stamp-keepsake");
+    }
     artwork.style.setProperty("--stamp-art", `url("${url}")`);
     artwork.innerHTML = '<span class="stamp-face"></span><span class="stamp-back"></span><span class="stamp-crease"></span>';
     const stamp = {
